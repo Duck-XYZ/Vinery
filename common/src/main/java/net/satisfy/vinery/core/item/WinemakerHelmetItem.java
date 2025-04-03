@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.item;
 
+import net.minecraft.core.Holder;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -17,7 +18,7 @@ import java.util.List;
 public class WinemakerHelmetItem extends ArmorItem {
     private final ResourceLocation hatTexture;
 
-    public WinemakerHelmetItem(ArmorMaterial armorMaterial, Type type, Properties properties, ResourceLocation hatTexture) {
+    public WinemakerHelmetItem(Holder<ArmorMaterial> armorMaterial, Type type, Properties properties, ResourceLocation hatTexture) {
         super(armorMaterial, type, properties);
         this.hatTexture = hatTexture;
     }
@@ -32,9 +33,7 @@ public class WinemakerHelmetItem extends ArmorItem {
     }
 
     @Override
-    public void appendHoverText(@NotNull ItemStack stack, @Nullable Level world, @NotNull List<Component> tooltip, @NotNull TooltipFlag context) {
-        if (world != null && world.isClientSide()) {
-            ArmorRegistryClient.appendToolTip(tooltip);
-        }
+    public void appendHoverText(ItemStack itemStack, TooltipContext tooltipContext, List<Component> list, TooltipFlag tooltipFlag) {
+        ArmorRegistryClient.appendToolTip(list);
     }
 }

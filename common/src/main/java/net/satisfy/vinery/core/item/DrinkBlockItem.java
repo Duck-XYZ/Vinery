@@ -4,7 +4,9 @@ import com.google.common.collect.Lists;
 import com.mojang.datafixers.util.Pair;
 import dev.architectury.injectables.annotations.PlatformOnly;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -15,12 +17,14 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
 import net.minecraft.world.item.*;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.satisfy.vinery.core.block.entity.StorageBlockEntity;
+import net.satisfy.vinery.core.registry.CompRegistry;
 import net.satisfy.vinery.core.registry.ObjectRegistry;
 import net.satisfy.vinery.core.util.GeneralUtil;
 import net.satisfy.vinery.core.util.WineYears;
@@ -34,9 +38,11 @@ import java.util.Objects;
 public class DrinkBlockItem extends BlockItem {
     private final int baseDuration;
     private final boolean scaleDurationWithAge;
+    private final FoodProperties foodProps;
 
-    public DrinkBlockItem(Block block, Properties settings, int baseDuration, boolean scaleDurationWithAge) {
+    public DrinkBlockItem(Block block, Properties settings, int baseDuration, boolean scaleDurationWithAge, FoodProperties foodProps) {
         super(block, settings);
+        this.foodProps = foodProps;
         this.baseDuration = baseDuration;
         this.scaleDurationWithAge = scaleDurationWithAge;
     }
@@ -64,34 +70,34 @@ public class DrinkBlockItem extends BlockItem {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, @Nullable Level world, List<Component> tooltip, TooltipFlag context) {
-        List<Pair<MobEffectInstance, Float>> effects = getFoodProperties() != null ? getFoodProperties().getEffects() : Lists.newArrayList();
+    public void appendHoverText(ItemStack itemStack, TooltipContext tooltipContext, List<Component> list, TooltipFlag tooltipFlag) {
+        super.appendHoverText(itemStack, tooltipContext, list, tooltipFlag);
+        List<FoodProperties.PossibleEffect> effects = foodProps != null ? foodProps.effects() : Lists.newArrayList();
         if (effects.isEmpty()) {
-            tooltip.add(Component.translatable("effect.none").withStyle(ChatFormatting.GRAY));
+            list.add(Component.translatable("effect.none").withStyle(ChatFormatting.GRAY));
         } else {
-            for (Pair<MobEffectInstance, Float> effectPair : effects) {
-                MobEffectInstance effectInstance = effectPair.getFirst();
-                MobEffect effect = effectInstance.getEffect();
-                String effectName = effect.getDisplayName().getString();
-                int amplifier = Math.max(0, WineYears.getEffectLevel(stack, world));
+            for (FoodProperties.PossibleEffect possibleEffect : effects) {
+                MobEffectInstance effectInstance = possibleEffect.effect();
+                Holder<MobEffect> effect = effectInstance.getEffect();
+                String effectName = effect.value().getDisplayName().getString();
+                int amplifier = Math.max(0, WineYears.getEffectLevel(itemStack, Minecraft.getInstance().level));
                 String amplifierRoman = amplifier > 0 ? " " + toRoman(amplifier) : "";
-                int durationTicks = scaleDurationWithAge ? WineYears.getEffectDuration(stack, world) : baseDuration;
+                int durationTicks = scaleDurationWithAge ? WineYears.getEffectDuration(itemStack, Minecraft.getInstance().level) : baseDuration;
                 durationTicks = Math.max(0, durationTicks);
                 String formattedDuration = formatDuration(durationTicks);
                 String tooltipText = effectName + amplifierRoman + " (" + formattedDuration + ")";
-                tooltip.add(Component.literal(tooltipText).withStyle(effect.getCategory().getTooltipFormatting()));
+                list.add(Component.literal(tooltipText).withStyle(effect.value().getCategory().getTooltipFormatting()));
             }
         }
-        tooltip.add(Component.empty());
-        if (world != null) {
-            int age = Math.max(0, WineYears.getWineAge(stack, world));
-            tooltip.add(Component.translatable("tooltip.vinery.age", age).withStyle(ChatFormatting.WHITE));
-            tooltip.add(Component.empty());
-            int yearsToNextUpgrade = WineYears.YEARS_PER_EFFECT_LEVEL - (age % WineYears.YEARS_PER_EFFECT_LEVEL);
-            int daysToNextUpgrade = Math.max(0, yearsToNextUpgrade * WineYears.DAYS_PER_YEAR);
-            tooltip.add(Component.translatable("tooltip.vinery.next_upgrade", daysToNextUpgrade)
-                    .withStyle(style -> style.withColor(TextColor.fromRgb(0x93c47d))));
-        }
+        list.add(Component.empty());
+
+        int age = Math.max(0, WineYears.getWineAge(itemStack, Minecraft.getInstance().level));
+        list.add(Component.translatable("tooltip.vinery.age", age).withStyle(ChatFormatting.WHITE));
+        list.add(Component.empty());
+        int yearsToNextUpgrade = WineYears.YEARS_PER_EFFECT_LEVEL - (age % WineYears.YEARS_PER_EFFECT_LEVEL);
+        int daysToNextUpgrade = Math.max(0, yearsToNextUpgrade * WineYears.DAYS_PER_YEAR);
+        list.add(Component.translatable("tooltip.vinery.next_upgrade", daysToNextUpgrade)
+                .withStyle(style -> style.withColor(TextColor.fromRgb(0x93c47d))));
     }
 
     @Override
@@ -101,9 +107,9 @@ public class DrinkBlockItem extends BlockItem {
             int age = Math.max(0, WineYears.getWineAge(itemStack, level));
             int duration = Math.max(0, scaleDurationWithAge ? WineYears.getEffectDuration(itemStack, level) : baseDuration);
             int amplifier = Math.max(0, WineYears.getEffectLevel(itemStack, level));
-            List<Pair<MobEffectInstance, Float>> effects = Objects.requireNonNull(getFoodProperties()).getEffects();
-            for (Pair<MobEffectInstance, Float> effectPair : effects) {
-                MobEffect effect = effectPair.getFirst().getEffect();
+            List<FoodProperties.PossibleEffect> effects = foodProps.effects();
+            for (FoodProperties.PossibleEffect possibleEffect : effects) {
+                Holder<MobEffect> effect = possibleEffect.effect().getEffect();
                 livingEntity.addEffect(new MobEffectInstance(effect, duration, amplifier));
             }
         }
@@ -153,19 +159,19 @@ public class DrinkBlockItem extends BlockItem {
         };
     }
 
-    @PlatformOnly(PlatformOnly.FORGE)
-    public CompoundTag getShareTag(ItemStack stack) {
-        CompoundTag tag = new CompoundTag();
-        if (stack.getTag() != null && stack.getTag().contains("Year")) {
-            tag.putInt("Year", stack.getTag().getInt("Year"));
-        }
-        return tag;
-    }
-
-    @PlatformOnly(PlatformOnly.FORGE)
-    public void readShareTag(ItemStack stack, @Nullable CompoundTag nbt) {
-        if (nbt != null && nbt.contains("Year")) {
-            stack.getOrCreateTag().putInt("Year", nbt.getInt("Year"));
-        }
-    }
+//    @PlatformOnly(PlatformOnly.FORGE)
+//    public CompoundTag getShareTag(ItemStack stack) {
+//        CompoundTag tag = new CompoundTag();
+//        if (stack.has(CompRegistry.WINE_YEARS)) {
+//            tag.putInt("Year", stack.getTag().getInt("Year"));
+//        }
+//        return tag;
+//    }
+//
+//    @PlatformOnly(PlatformOnly.FORGE)
+//    public void readShareTag(ItemStack stack, @Nullable CompoundTag nbt) {
+//        if (nbt != null && nbt.contains("Year")) {
+//            stack.getOrCreateTag().putInt("Year", nbt.getInt("Year"));
+//        }
+//    }
 }

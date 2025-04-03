@@ -2,6 +2,7 @@ package net.satisfy.vinery.core.mixin;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BoneMealItem;
 import net.minecraft.world.item.ItemStack;
@@ -50,12 +51,10 @@ public abstract class BoneMealItemMixin {
                 heldItem.grow(1);
             }
 
-            for (int i = 0; i < 4; i++) {
-                ItemStack armorPiece = player.getInventory().getArmor(i);
-                if (!armorPiece.isEmpty()) {
-                    armorPiece.hurtAndBreak(2, player, (p) -> p.broadcastBreakEvent(context.getHand()));
-                }
-            }
+            player.getInventory().getArmor(0).hurtAndBreak(2, player, EquipmentSlot.FEET);
+            player.getInventory().getArmor(1).hurtAndBreak(2, player, EquipmentSlot.LEGS);
+            player.getInventory().getArmor(2).hurtAndBreak(2, player, EquipmentSlot.BODY);
+            player.getInventory().getArmor(3).hurtAndBreak(2, player, EquipmentSlot.HEAD);
         }
     }
 }

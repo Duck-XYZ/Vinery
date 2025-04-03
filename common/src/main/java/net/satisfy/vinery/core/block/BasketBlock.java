@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.block;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
@@ -44,9 +45,15 @@ import java.util.function.Supplier;
 
 @SuppressWarnings("deprecation")
 public class BasketBlock extends BaseEntityBlock implements SimpleWaterloggedBlock{
+    public static final MapCodec<BasketBlock> CODEC = simpleCodec(BasketBlock::new);
     public static final DirectionProperty FACING;
     public static final ResourceLocation CONTENTS;
     public static final BooleanProperty WATERLOGGED;
+
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
+    }
 
     public BasketBlock(Properties properties) {
         super(properties);
@@ -87,12 +94,12 @@ public class BasketBlock extends BaseEntityBlock implements SimpleWaterloggedBlo
         }
     }
 
-    public void playerWillDestroy(Level level, BlockPos blockPos, BlockState blockState, Player player) {
+    public BlockState playerWillDestroy(Level level, BlockPos blockPos, BlockState blockState, Player player) {
         if (!level.isClientSide) {
             BlockEntity blockEntity = level.getBlockEntity(blockPos);
             if (blockEntity instanceof BasketBlockEntity basketBlockEntity) {
                 ItemStack itemStack = new ItemStack(blockState.getBlock());
-                basketBlockEntity.saveToItem(itemStack);
+                basketBlockEntity.saveToItem(itemStack, level.registryAccess());
                 double x = blockPos.getX() + 0.5;
                 double y = blockPos.getY() + 0.5;
                 double z = blockPos.getZ() + 0.5;
@@ -101,7 +108,7 @@ public class BasketBlock extends BaseEntityBlock implements SimpleWaterloggedBlo
                 level.addFreshEntity(itemEntity);
             }
         }
-        super.playerWillDestroy(level, blockPos, blockState, player);
+        return super.playerWillDestroy(level, blockPos, blockState, player);
     }
 
     public @NotNull List<ItemStack> getDrops(BlockState blockState, LootParams.Builder builder) {

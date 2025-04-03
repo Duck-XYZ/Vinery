@@ -2,6 +2,7 @@ package net.satisfy.vinery.core.block.entity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -14,6 +15,8 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.RecipeHolder;
+import net.minecraft.world.item.crafting.RecipeInput;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
@@ -29,7 +32,7 @@ import net.satisfy.vinery.platform.PlatformHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, ImplementedInventory, BlockEntityTicker<ApplePressBlockEntity> {
+public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, ImplementedInventory, BlockEntityTicker<ApplePressBlockEntity>, RecipeInput {
     private final NonNullList<ItemStack> inventory = NonNullList.withSize(4, ItemStack.EMPTY);
     protected final ContainerData propertyDelegate;
     private int progress1 = 0;
@@ -89,6 +92,21 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
     }
 
     @Override
+    public int getContainerSize() {
+        return this.inventory.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return this.inventory.isEmpty();
+    }
+
+    @Override
+    public @NotNull ItemStack getItem(int slot) {
+        return this.inventory.get(slot);
+    }
+
+    @Override
     public @NotNull Component getDisplayName() {
         return Component.translatable(this.getBlockState().getBlock().getDescriptionId());
     }
@@ -100,17 +118,17 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
     }
 
     @Override
-    protected void saveAdditional(CompoundTag nbt) {
-        super.saveAdditional(nbt);
-        ContainerHelper.saveAllItems(nbt, inventory);
+    protected void saveAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
+        super.saveAdditional(nbt, provider);
+        ContainerHelper.saveAllItems(nbt, inventory, provider);
         nbt.putInt("apple_press.progress1", progress1);
         nbt.putInt("apple_press.progress2", progress2);
     }
 
     @Override
-    public void load(CompoundTag nbt) {
-        super.load(nbt);
-        ContainerHelper.loadAllItems(nbt, inventory);
+    protected void loadAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
+        super.loadAdditional(nbt, provider);
+        ContainerHelper.loadAllItems(nbt, inventory, provider);
         progress1 = nbt.getInt("apple_press.progress1");
         progress2 = nbt.getInt("apple_press.progress2");
     }
@@ -122,7 +140,12 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
         boolean dirty = false;
 
         if (hasInput(entity, 0)) {
-            Recipe<?> recipe1 = world.getRecipeManager().getRecipeFor(RecipeTypesRegistry.APPLE_PRESS_MASHING_RECIPE_TYPE.get(), entity, world).orElse(null);
+            RecipeHolder<?> recipeHolder1 = world.getRecipeManager()
+                    .getRecipeFor(RecipeTypesRegistry.APPLE_PRESS_MASHING_RECIPE_TYPE.get(), entity, world)
+                    .orElse(null);
+
+            Recipe<?> recipe1 = recipeHolder1 == null ? null : recipeHolder1.value();
+            
             if (recipe1 instanceof ApplePressMashingRecipe mashingRecipe) {
                 if (canProcessMashing(entity, mashingRecipe)) {
                     entity.progress1++;
@@ -141,7 +164,9 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
         }
 
         if (hasInput(entity, 1)) {
-            Recipe<?> recipe2 = world.getRecipeManager().getRecipeFor(RecipeTypesRegistry.APPLE_PRESS_FERMENTING_RECIPE_TYPE.get(), entity, world).orElse(null);
+            RecipeHolder<?> recipeHolder = world.getRecipeManager()
+                    .getRecipeFor(RecipeTypesRegistry.APPLE_PRESS_FERMENTING_RECIPE_TYPE.get(), entity, world).orElse(null);
+            Recipe<?> recipe2 = recipeHolder == null ? null : recipeHolder.value();
             if (recipe2 instanceof ApplePressFermentingRecipe fermentingRecipe) {
                 if (canProcessFermenting(entity, fermentingRecipe)) {
                     entity.progress2++;
@@ -168,10 +193,9 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
         return !entity.getItem(slot).isEmpty();
     }
 
-    private static boolean canProcessMashing(ApplePressBlockEntity entity, ApplePressMashingRecipe recipe) {
-        ItemStack input = entity.getItem(0);
+    private boolean canProcessMashing(ApplePressBlockEntity entity, ApplePressMashingRecipe recipe) {
         ItemStack output = entity.getItem(1);
-        if (!recipe.matches(new SimpleContainer(input), entity.level)) return false;
+        if (!recipe.matches(this, entity.level)) return false;
         if (output.isEmpty()) return true;
         assert entity.level != null;
         return output.getItem() == recipe.getResultItem(entity.level.registryAccess()).getItem();
@@ -261,7 +285,7 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
         return level.getRecipeManager()
                 .getAllRecipesFor(RecipeTypesRegistry.APPLE_PRESS_MASHING_RECIPE_TYPE.get())
                 .stream()
-                .anyMatch(recipe -> recipe.getIngredients().stream().anyMatch(ingredient -> ingredient.test(stack)));
+                .anyMatch(recipe -> recipe.value().getIngredients().stream().anyMatch(ingredient -> ingredient.test(stack)));
     }
 
     private boolean isValidForFermentationBarrel(ItemStack stack) {
@@ -269,6 +293,11 @@ public class ApplePressBlockEntity extends BlockEntity implements MenuProvider, 
         return level.getRecipeManager()
                 .getAllRecipesFor(RecipeTypesRegistry.FERMENTATION_BARREL_RECIPE_TYPE.get())
                 .stream()
-                .anyMatch(recipe -> recipe.getIngredients().stream().anyMatch(ingredient -> ingredient.test(stack)));
+                .anyMatch(recipe -> recipe.value().getIngredients().stream().anyMatch(ingredient -> ingredient.test(stack)));
+    }
+
+    @Override
+    public int size() {
+        return 0;
     }
 }

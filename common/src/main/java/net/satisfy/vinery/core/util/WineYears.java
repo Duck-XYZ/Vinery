@@ -3,6 +3,7 @@ package net.satisfy.vinery.core.util;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.satisfy.vinery.core.registry.CompRegistry;
 import net.satisfy.vinery.platform.PlatformHelper;
 
 public class WineYears {
@@ -31,15 +32,14 @@ public class WineYears {
 
 	public static void setWineYear(ItemStack wine, Level world) {
 		if (world != null) {
-			wine.getOrCreateTag().putInt("Year", getYear(world));
+			wine.set(CompRegistry.WINE_YEARS.get(), getYear(world));
 		} else {
-			wine.getOrCreateTag().putInt("Year", YEARS_START);
+			wine.set(CompRegistry.WINE_YEARS.get(), YEARS_START);
 		}
 	}
 
 	public static int getWineYear(ItemStack wine) {
-		CompoundTag nbt = wine.getOrCreateTag();
-		return nbt.getInt("Year");
+		return wine.getOrDefault(CompRegistry.WINE_YEARS.get(), 0);
 	}
 
 	public static int getEffectDuration(ItemStack wine, Level world) {
@@ -50,7 +50,7 @@ public class WineYears {
 
 
 	public static boolean hasWineYear(ItemStack wine) {
-		return !wine.getOrCreateTag().contains("Year");
+		return wine.has(CompRegistry.WINE_YEARS.get());
 	}
 }
 

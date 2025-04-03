@@ -53,7 +53,7 @@ public class GeneralUtil {
     private static final Map<ResourceLocation, Map<BlockPos, Pair<ChairEntity, BlockPos>>> CHAIRS = new HashMap<>();
 
     public static RotatedPillarBlock logBlock() {
-        return new RotatedPillarBlock(BlockBehaviour.Properties.copy(Blocks.OAK_LOG));
+        return new RotatedPillarBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_LOG));
     }
 
     public static <T extends Block> RegistrySupplier<T> registerWithItem(DeferredRegister<Block> registerB, Registrar<Block> registrarB, DeferredRegister<Item> registerI, Registrar<Item> registrarI, ResourceLocation name, Supplier<T> block) {
@@ -63,11 +63,11 @@ public class GeneralUtil {
     }
 
     public static <T extends Block> RegistrySupplier<T> registerWithoutItem(DeferredRegister<Block> register, Registrar<Block> registrar, ResourceLocation path, Supplier<T> block) {
-        return Platform.isForge() ? register.register(path.getPath(), block) : registrar.register(path, block);
+        return Platform.isNeoForge() ? register.register(path.getPath(), block) : registrar.register(path, block);
     }
 
     public static <T extends Item> RegistrySupplier<T> registerItem(DeferredRegister<Item> register, Registrar<Item> registrar, ResourceLocation path, Supplier<T> itemSupplier) {
-        return Platform.isForge() ? register.register(path.getPath(), itemSupplier) : registrar.register(path, itemSupplier);
+        return Platform.isNeoForge() ? register.register(path.getPath(), itemSupplier) : registrar.register(path, itemSupplier);
     }
     public static Collection<ServerPlayer> tracking(ServerLevel world, ChunkPos pos) {
         Objects.requireNonNull(world, "The world cannot be null");
@@ -184,18 +184,18 @@ public class GeneralUtil {
         };
     }
 
-    public static NonNullList<Ingredient> deserializeIngredients(JsonArray json) {
-        NonNullList<Ingredient> ingredients = NonNullList.create();
-
-        for(int i = 0; i < json.size(); ++i) {
-            Ingredient ingredient = Ingredient.fromJson(json.get(i));
-            if (!ingredient.isEmpty()) {
-                ingredients.add(ingredient);
-            }
-        }
-
-        return ingredients;
-    }
+//    public static NonNullList<Ingredient> deserializeIngredients(JsonArray json) {
+//        NonNullList<Ingredient> ingredients = NonNullList.create();
+//
+//        for(int i = 0; i < json.size(); ++i) {
+//            Ingredient ingredient = Ingredient.fromJson(json.get(i));
+//            if (!ingredient.isEmpty()) {
+//                ingredients.add(ingredient);
+//            }
+//        }
+//
+//        return ingredients;
+//    }
 
     public static ItemStack convertStackAfterFinishUsing(LivingEntity entity, ItemStack used, Item returnItem, Item usedItem) {
         if (entity instanceof ServerPlayer serverPlayer) {
@@ -236,13 +236,13 @@ public class GeneralUtil {
         }
     }
 
-    public static InteractionResult onUse(Level world, Player player, InteractionHand hand, BlockHitResult hit, double extraHeight) {
+    public static InteractionResult onUse(Level world, Player player, ItemStack item, BlockHitResult hit, double extraHeight) {
         if (world.isClientSide) return InteractionResult.PASS;
         if (player.isShiftKeyDown()) return InteractionResult.PASS;
         if (GeneralUtil.isPlayerSitting(player)) return InteractionResult.PASS;
         if (hit.getDirection() == Direction.DOWN) return InteractionResult.PASS;
         BlockPos hitPos = hit.getBlockPos();
-        if (!GeneralUtil.isOccupied(world, hitPos) && player.getItemInHand(hand).isEmpty()) {
+        if (!GeneralUtil.isOccupied(world, hitPos) && item.isEmpty()) {
             ChairEntity chair = EntityTypeRegistry.CHAIR.get().create(world);
             assert chair != null;
             chair.moveTo(hitPos.getX() + 0.5D, hitPos.getY() + 0.25D + extraHeight, hitPos.getZ() + 0.5D, 0, 0);
@@ -322,6 +322,6 @@ public class GeneralUtil {
     }
 
     private static ResourceLocation getDimensionTypeId(Level world) {
-        return world.dimensionTypeId().location();
+        return world.dimension().location();
     }
 }

@@ -44,21 +44,21 @@ public class CherryLeavesBlock extends LeavesBlock {
     }
 
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
         if (state.getValue(VARIANT) && state.getValue(HAS_CHERRIES)) {
-            if (!world.isClientSide()) {
-                int dropCount = world.getRandom().nextBoolean() ? world.getRandom().nextInt(1, 4) : 1;
+            if (!level.isClientSide()) {
+                int dropCount = level.getRandom().nextBoolean() ? level.getRandom().nextInt(1, 4) : 1;
                 ItemStack dropStack = new ItemStack(ObjectRegistry.CHERRY.get(), dropCount);
-                if (world.getRandom().nextInt(8) == 0) {
+                if (level.getRandom().nextInt(8) == 0) {
                     dropStack = new ItemStack(ObjectRegistry.ROTTEN_CHERRY.get(), dropCount);
                 }
-                CherryLeavesBlock.popResourceFromFace(world, pos, hit.getDirection(), dropStack);
-                world.playSound(null, pos, SoundEvents.ITEM_FRAME_REMOVE_ITEM, SoundSource.BLOCKS, 1F, 1F);
-                world.setBlock(pos, state.setValue(HAS_CHERRIES, false).setValue(AGE, 0), 2);
+                CherryLeavesBlock.popResourceFromFace(level, blockPos, blockHitResult.getDirection(), dropStack);
+                level.playSound(null, blockPos, SoundEvents.ITEM_FRAME_REMOVE_ITEM, SoundSource.BLOCKS, 1F, 1F);
+                level.setBlock(blockPos, state.setValue(HAS_CHERRIES, false).setValue(AGE, 0), 2);
             }
             return InteractionResult.SUCCESS;
         }
-        return super.use(state, world, pos, player, hand, hit);
+        return super.useWithoutItem(state, level, blockPos, player, blockHitResult);
     }
 
     @Override

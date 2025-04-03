@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.util;
 
+import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.food.FoodProperties;
@@ -10,26 +11,32 @@ import java.util.function.Supplier;
 public class WineSettings {
     private final Properties properties;
     private final int baseDuration;
+    private final FoodProperties foodProps;
 
-    public WineSettings(Supplier<MobEffect> effect, int duration, int strength) {
+    public WineSettings(Holder<MobEffect> effect, int duration, int strength) {
         this.baseDuration = duration;
+        this.foodProps = createWineFoodComponent(effect,duration, strength);
         this.properties = new Properties()
-                .food(createWineFoodComponent(effect, duration, strength));
+                .food(this.foodProps);
     }
 
     public Properties getProperties() {
         return properties;
     }
 
+    public FoodProperties getFoodProps() {
+        return foodProps;
+    }
+
     public int getBaseDuration() {
         return baseDuration;
     }
 
-    private FoodProperties createWineFoodComponent(Supplier<MobEffect> effect, int duration, int strength) {
+    private FoodProperties createWineFoodComponent(Holder<MobEffect> effect, int duration, int strength) {
         FoodProperties.Builder builder = new FoodProperties.Builder()
-                .alwaysEat();
+                .alwaysEdible();
         if (effect != null) {
-            builder.effect(new MobEffectInstance(effect.get(), duration, strength), 1.0f);
+            builder.effect(new MobEffectInstance(effect, duration, strength), 1.0f);
         }
         return builder.build();
     }

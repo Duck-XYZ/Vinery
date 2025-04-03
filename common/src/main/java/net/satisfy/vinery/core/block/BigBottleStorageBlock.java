@@ -31,18 +31,16 @@ public class BigBottleStorageBlock extends StorageBlock {
     public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
     private static final SoundEvent OPEN_SOUND = SoundEvents.BAMBOO_WOOD_DOOR_OPEN;
 
-
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (player.isShiftKeyDown() && stack.isEmpty()) {
-            if (!world.isClientSide()) {
-                world.playSound(null, pos, OPEN_SOUND, SoundSource.BLOCKS, 0.4f, 0.4f);
-                world.setBlock(pos, state.setValue(OPEN, !state.getValue(OPEN)), UPDATE_ALL);
+    protected InteractionResult useWithoutItem(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
+        if (player.isShiftKeyDown()) {
+            if (!level.isClientSide()) {
+                level.playSound(null, blockPos, OPEN_SOUND, SoundSource.BLOCKS, 0.4f, 0.4f);
+                level.setBlock(blockPos, blockState.setValue(OPEN, !blockState.getValue(OPEN)), UPDATE_ALL);
             }
-            return InteractionResult.sidedSuccess(world.isClientSide());
-        } else if (state.getValue(OPEN)) {
-            return super.use(state, world, pos, player, hand, hit);
+            return InteractionResult.sidedSuccess(level.isClientSide());
+        } else if (blockState.getValue(OPEN)) {
+            return super.useWithoutItem(blockState, level, blockPos, player, blockHitResult);
         }
         return InteractionResult.PASS;
     }

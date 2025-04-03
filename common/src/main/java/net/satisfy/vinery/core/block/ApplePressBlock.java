@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.block;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -38,10 +39,16 @@ import java.util.function.Supplier;
 
 @SuppressWarnings("deprecation")
 public class ApplePressBlock extends BaseEntityBlock {
+	public static final MapCodec<ApplePressBlock> CODEC = simpleCodec(ApplePressBlock::new);
 	public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 	public static final EnumProperty<DoubleBlockHalf> HALF = EnumProperty.create("half", DoubleBlockHalf.class);
 	public static final Map<Direction, VoxelShape> TOP_SHAPES = new HashMap<>();
 	public static final Map<Direction, VoxelShape> BOTTOM_SHAPES = new HashMap<>();
+
+	@Override
+	protected MapCodec<? extends BaseEntityBlock> codec() {
+		return CODEC;
+	}
 
 	public ApplePressBlock(Properties settings) {
 		super(settings);
@@ -74,7 +81,7 @@ public class ApplePressBlock extends BaseEntityBlock {
 	}
 
 	@Override
-	public void playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
+	public BlockState playerWillDestroy(Level world, BlockPos pos, BlockState state, Player player) {
 		if (!world.isClientSide) {
 			BlockPos otherPartPos;
 			BlockState otherPartState;
@@ -98,6 +105,7 @@ public class ApplePressBlock extends BaseEntityBlock {
 			}
 		}
 		super.playerWillDestroy(world, pos, state, player);
+		return state;
 	}
 
 	private void dropInventory(Level world, BlockPos pos) {
@@ -114,7 +122,7 @@ public class ApplePressBlock extends BaseEntityBlock {
 	}
 
 	@Override
-	public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
+	protected InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult blockHitResult) {
 		if (state.getValue(HALF) != DoubleBlockHalf.LOWER) {
 			return InteractionResult.PASS;
 		}

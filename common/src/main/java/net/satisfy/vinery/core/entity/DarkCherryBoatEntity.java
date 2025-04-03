@@ -37,9 +37,9 @@ public class DarkCherryBoatEntity extends Boat {
     }
 
     @Override
-    protected void defineSynchedData() {
-        super.defineSynchedData();
-        this.entityData.define(WOOD_TYPE, 0);
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(WOOD_TYPE, 0);
     }
 
     @Override
@@ -66,11 +66,6 @@ public class DarkCherryBoatEntity extends Boat {
     @Override
     public @NotNull Item getDropItem() {
         return this.getWoodType().getItem().get();
-    }
-
-    @Override
-    public @NotNull Packet<ClientGamePacketListener> getAddEntityPacket() {
-        return new ClientboundAddEntityPacket(this);
     }
 
     public enum Type {

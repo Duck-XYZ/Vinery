@@ -104,13 +104,9 @@ public class ChairBlock extends Block {
     }
 
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (hand == InteractionHand.OFF_HAND) {
-            return InteractionResult.PASS;
-        }
-
-        if (state.getValue(HALF) == DoubleBlockHalf.LOWER) {
-            return GeneralUtil.onUse(world, player, hand, hit, 0);
+    protected InteractionResult useWithoutItem(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
+        if (blockState.getValue(HALF) == DoubleBlockHalf.LOWER) {
+            return GeneralUtil.onUse(level, player, ItemStack.EMPTY, blockHitResult, 0);
         }
         return InteractionResult.PASS;
     }
@@ -136,7 +132,7 @@ public class ChairBlock extends Block {
     }
 
     @Override
-    public boolean isPathfindable(BlockState state, BlockGetter level, BlockPos pos, PathComputationType type) {
+    protected boolean isPathfindable(BlockState blockState, PathComputationType pathComputationType) {
         return false;
     }
 

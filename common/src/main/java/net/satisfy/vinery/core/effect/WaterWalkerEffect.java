@@ -17,7 +17,7 @@ public class WaterWalkerEffect extends MobEffect
     }
 
     @Override
-    public void applyEffectTick(LivingEntity pLivingEntity, int pAmplifier) {
+    public boolean applyEffectTick(LivingEntity pLivingEntity, int pAmplifier) {
         if (!(pLivingEntity instanceof Player player && player.isSpectator())) {
             Vec3 pos = pLivingEntity.position();
             Vec3 movement = pLivingEntity.getDeltaMovement();
@@ -40,10 +40,12 @@ public class WaterWalkerEffect extends MobEffect
             }
             super.applyEffectTick(pLivingEntity, pAmplifier);
         }
+        return true;
     }
 
     @Override
-    public boolean isDurationEffectTick(int duration, int amplifier) {
+    public boolean shouldApplyEffectTickThisTick(int i, int j) {
         return true;
     }
+
 }

@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.block;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.entity.LivingEntity;
@@ -33,7 +34,13 @@ import java.util.function.Supplier;
 
 @SuppressWarnings("deprecation")
 public class BigTableBlock extends HorizontalDirectionalBlock {
+	public static final MapCodec<BigTableBlock> CODEC = simpleCodec(BigTableBlock::new);
 	public static final EnumProperty<BedPart> PART = BlockStateProperties.BED_PART;
+
+	@Override
+	protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+		return CODEC;
+	}
 
 	private static final Supplier<VoxelShape> voxelShapeSupplier = () -> {
 		VoxelShape shape = Shapes.empty();

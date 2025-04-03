@@ -1,7 +1,12 @@
 package net.satisfy.vinery.core.block;
 
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponentMap;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -26,12 +31,23 @@ import org.jetbrains.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
 public class CabinetBlock extends BaseEntityBlock {
+    public static final MapCodec<CabinetBlock> CODEC = RecordCodecBuilder.mapCodec(inst -> {
+        return inst.group(propertiesCodec(),
+                        SoundEvent.CODEC.fieldOf("openSound").forGetter(block -> block.openSound),
+                        SoundEvent.CODEC.fieldOf("closeSound").forGetter(block -> block.closeSound))
+                .apply(inst, CabinetBlock::new);
+    });
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final BooleanProperty OPEN = BlockStateProperties.OPEN;
-    private final SoundEvent openSound;
-    private final SoundEvent closeSound;
+    private final Holder<SoundEvent> openSound;
+    private final Holder<SoundEvent> closeSound;
 
-    public CabinetBlock(BlockBehaviour.Properties settings, SoundEvent openSound, SoundEvent closeSound) {
+    @Override
+    protected MapCodec<? extends BaseEntityBlock> codec() {
+        return CODEC;
+    }
+
+    public CabinetBlock(BlockBehaviour.Properties settings, Holder<SoundEvent> openSound, Holder<SoundEvent> closeSound) {
         super(settings);
         this.openSound = openSound;
         this.closeSound = closeSound;
@@ -44,23 +60,23 @@ public class CabinetBlock extends BaseEntityBlock {
     }
 
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (world.isClientSide) {
+    protected InteractionResult useWithoutItem(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
+        if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         } else {
-            BlockEntity blockEntity = world.getBlockEntity(pos);
+            BlockEntity blockEntity = level.getBlockEntity(blockPos);
             if (blockEntity instanceof CabinetBlockEntity cabinetBlockEntity) {
                 player.openMenu(cabinetBlockEntity);
-                boolean isOpen = state.getValue(OPEN);
-                world.setBlock(pos, state.setValue(OPEN, !isOpen), 3);
-                this.playSound(world, pos, !isOpen);
+                boolean isOpen = blockState.getValue(OPEN);
+                level.setBlock(blockPos, blockState.setValue(OPEN, !isOpen), 3);
+                this.playSound(level, blockPos, !isOpen);
             }
             return InteractionResult.CONSUME;
         }
     }
 
     public void playSound(Level world, BlockPos pos, boolean isOpen) {
-        SoundEvent soundEvent = isOpen ? openSound : closeSound;
+        SoundEvent soundEvent = isOpen ? openSound.value() : closeSound.value();
         world.playSound(null, pos, soundEvent, net.minecraft.sounds.SoundSource.BLOCKS, 1.0F, 1.1F);
     }
 
@@ -93,10 +109,11 @@ public class CabinetBlock extends BaseEntityBlock {
 
     @Override
     public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
-        if (itemStack.hasCustomHoverName()) {
+        if (itemStack.has(DataComponents.CUSTOM_NAME)) {
             BlockEntity blockEntity = world.getBlockEntity(pos);
             if (blockEntity instanceof CabinetBlockEntity cabinetBlockEntity) {
-                cabinetBlockEntity.setCustomName(itemStack.getHoverName());
+                cabinetBlockEntity.setComponents(DataComponentMap.builder().set(DataComponents.CUSTOM_NAME,
+                        itemStack.get(DataComponents.CUSTOM_NAME)).build());
             }
         }
     }

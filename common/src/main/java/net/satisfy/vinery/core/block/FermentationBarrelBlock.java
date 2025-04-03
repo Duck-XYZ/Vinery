@@ -1,5 +1,6 @@
 package net.satisfy.vinery.core.block;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -38,6 +39,7 @@ import java.util.function.Supplier;
 
 @SuppressWarnings({"unchecked", "deprecation"})
 public class FermentationBarrelBlock extends HorizontalDirectionalBlock implements EntityBlock {
+    public static final MapCodec<FermentationBarrelBlock> CODEC = simpleCodec(FermentationBarrelBlock::new);
     private static final Supplier<VoxelShape> voxelShapeSupplier = () -> {
         VoxelShape shape = Shapes.empty();
         shape = Shapes.join(shape, Shapes.box(0.0625, 0.125, 0, 0.9375, 1, 1), BooleanOp.OR);
@@ -53,24 +55,29 @@ public class FermentationBarrelBlock extends HorizontalDirectionalBlock implemen
         }
     });
 
+    @Override
+    protected MapCodec<? extends HorizontalDirectionalBlock> codec() {
+        return CODEC;
+    }
+
     public FermentationBarrelBlock(Properties settings) {
         super(settings);
     }
 
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        if (world.isClientSide) {
+    protected InteractionResult useWithoutItem(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
+        if (level.isClientSide) {
             return InteractionResult.SUCCESS;
         }
 
-        BlockEntity blockEntity = world.getBlockEntity(pos);
+        BlockEntity blockEntity = level.getBlockEntity(blockPos);
         if (blockEntity instanceof FermentationBarrelBlockEntity barrelBlockEntity) {
             if (player.isShiftKeyDown()) {
                 if (barrelBlockEntity.getFluidLevel() > 0) {
                     barrelBlockEntity.setFluidLevel(0);
                     barrelBlockEntity.setJuiceType("");
-                    world.playSound(null, pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
-                    world.sendBlockUpdated(pos, state, state, 3);
+                    level.playSound(null, blockPos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 1.0F, 1.0F);
+                    level.sendBlockUpdated(blockPos, blockState, blockState, 3);
                     return InteractionResult.SUCCESS;
                 }
             } else {
@@ -79,7 +86,7 @@ public class FermentationBarrelBlock extends HorizontalDirectionalBlock implemen
             }
         }
 
-        return super.use(state, world, pos, player, hand, hit);
+        return super.useWithoutItem(blockState, level, blockPos, player, blockHitResult);
     }
 
     @Override

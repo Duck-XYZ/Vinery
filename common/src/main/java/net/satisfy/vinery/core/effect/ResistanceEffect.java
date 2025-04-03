@@ -1,29 +1,31 @@
 package net.satisfy.vinery.core.effect;
 
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectCategory;
+import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.satisfy.vinery.core.util.VineryIdentifier;
 
 import java.util.UUID;
 
 public class ResistanceEffect extends MobEffect {
-    private static final String KNOCKBACK_RESISTANCE_UUID = "8E5D432F-91E5-4C0A-B556-3D4376F25F11";
-    private static final String ARMOR_TOUGHNESS_UUID = "B5A8D51B-47EC-47FD-9886-7EBDFE81EBA7";
+    private static final ResourceLocation KNOCKBACK_MOD = new VineryIdentifier("resistance_knockback_mod");
+    private static final ResourceLocation TOUGHNESS_MOD = new VineryIdentifier("resistance_toughness_mod");
 
 
     public ResistanceEffect() {
         super(MobEffectCategory.BENEFICIAL, 0x56CBFD);
-        this.addAttributeModifier(Attributes.KNOCKBACK_RESISTANCE, KNOCKBACK_RESISTANCE_UUID, 4.0F, AttributeModifier.Operation.ADDITION);
-        this.addAttributeModifier(Attributes.ARMOR_TOUGHNESS, ARMOR_TOUGHNESS_UUID, 6.0F, AttributeModifier.Operation.ADDITION);
     }
 
     @Override
-    public double getAttributeModifierValue(int amplifier, AttributeModifier modifier) {
-        if (modifier.getId().equals(UUID.fromString(KNOCKBACK_RESISTANCE_UUID)))
-            return (amplifier + 1) * 2.0F;
-        if (modifier.getId().equals(UUID.fromString(ARMOR_TOUGHNESS_UUID)))
-            return (amplifier + 1) * 2.0F;
-        return amplifier + 1;
+    public void addAttributeModifiers(AttributeMap attributeMap, int i) {
+        this.attributeModifiers.put(Attributes.KNOCKBACK_RESISTANCE, new AttributeTemplate(
+                KNOCKBACK_MOD, (i+1) * 2.0f, AttributeModifier.Operation.ADD_VALUE));
+        this.attributeModifiers.put(Attributes.ARMOR_TOUGHNESS, new AttributeTemplate(
+                TOUGHNESS_MOD, (i+1) * 2.0f, AttributeModifier.Operation.ADD_VALUE));
+
+        super.addAttributeModifiers(attributeMap, i);
     }
 }

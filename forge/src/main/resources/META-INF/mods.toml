@@ -42,3 +42,9 @@ modId = "copperative"
 [[incompatibleMods]]
 modId = "nethervinery"
 versionRange = "<1.2.14"
+
+[[mixins]]
+config = "vinery-common.mixins.json"
+
+[[mixins]]
+config = "vinery.mixins.json"

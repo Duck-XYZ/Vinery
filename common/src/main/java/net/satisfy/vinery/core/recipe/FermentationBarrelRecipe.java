@@ -2,12 +2,20 @@ package net.satisfy.vinery.core.recipe;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.world.entity.player.StackedContents;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.*;
 import net.minecraft.world.level.Level;
@@ -17,29 +25,27 @@ import net.satisfy.vinery.core.registry.RecipeTypesRegistry;
 import org.jetbrains.annotations.NotNull;
 
 public class FermentationBarrelRecipe implements Recipe<FermentationBarrelBlockEntity> {
-    private final ResourceLocation identifier;
-    private final NonNullList<Ingredient> inputs;
-    private final String juiceType;
-    private final int juiceAmount;
-    private final ItemStack output;
-    private final boolean wineBottleRequired;
+    NonNullList<Ingredient> inputs;
+    Juice juice;
+    String juiceType;
+    int juiceAmount;
+    ItemStack output;
+    boolean wineBottleRequired;
 
-    public FermentationBarrelRecipe(ResourceLocation identifier, NonNullList<Ingredient> inputs, String juiceType, int juiceAmount, ItemStack output, boolean wineBottleRequired) {
-        this.identifier = identifier;
+    public FermentationBarrelRecipe(NonNullList<Ingredient> inputs, Juice juice, ItemStack output, boolean wineBottleRequired) {
         this.inputs = inputs;
-        this.juiceType = juiceType;
-        this.juiceAmount = juiceAmount;
+        this.juice = juice;
         this.output = output;
 
         this.wineBottleRequired = wineBottleRequired;
     }
 
     public String getJuiceType() {
-        return juiceType;
+        return juice.type();
     }
 
     public int getJuiceAmount() {
-        return juiceAmount;
+        return juice.amount();
     }
 
     public boolean isWineBottleRequired() {
@@ -48,8 +54,8 @@ public class FermentationBarrelRecipe implements Recipe<FermentationBarrelBlockE
 
     @Override
     public boolean matches(FermentationBarrelBlockEntity blockEntity, Level world) {
-        if (this.juiceAmount > 0) {
-            if (blockEntity.getFluidLevel() < this.juiceAmount) {
+        if (this.juice.amount() > 0) {
+            if (blockEntity.getFluidLevel() < this.juice.amount()) {
                 return false;
             }
 
@@ -80,7 +86,7 @@ public class FermentationBarrelRecipe implements Recipe<FermentationBarrelBlockE
     }
 
     @Override
-    public @NotNull ItemStack assemble(FermentationBarrelBlockEntity blockEntity, RegistryAccess registryAccess) {
+    public ItemStack assemble(FermentationBarrelBlockEntity recipeInput, HolderLookup.Provider provider) {
         return this.output.copy();
     }
 
@@ -95,13 +101,8 @@ public class FermentationBarrelRecipe implements Recipe<FermentationBarrelBlockE
     }
 
     @Override
-    public @NotNull ItemStack getResultItem(RegistryAccess registryAccess) {
+    public ItemStack getResultItem(HolderLookup.Provider provider) {
         return this.output.copy();
-    }
-
-    @Override
-    public @NotNull ResourceLocation getId() {
-        return this.identifier;
     }
 
     @Override
@@ -120,62 +121,68 @@ public class FermentationBarrelRecipe implements Recipe<FermentationBarrelBlockE
     }
 
     public static class Serializer implements RecipeSerializer<FermentationBarrelRecipe> {
+        private static final MapCodec<FermentationBarrelRecipe> CODEC = RecordCodecBuilder.mapCodec((instance) -> {
+            return instance.group(
+                    Ingredient.CODEC_NONEMPTY.listOf().fieldOf("ingredients").flatXmap((list) -> {
+                        Ingredient[] ingredients = (Ingredient[])list.stream().filter((ingredient) -> !ingredient.isEmpty())
+                                .toArray(Ingredient[]::new);
+
+                        if (ingredients.length == 0) {
+                            return DataResult.error(() -> "No ingredients for shapeless recipe");
+                        } else {
+                            return ingredients.length > 4 ? DataResult.error(() -> "Too many ingredients for shapeless recipe")
+                                    : DataResult.success(NonNullList.of(Ingredient.EMPTY, ingredients));
+                        }
+                    }, DataResult::success).forGetter(recipe -> recipe.inputs),
+                    Juice.CODEC.fieldOf("juice").forGetter(recipe -> recipe.juice),
+                    ItemStack.STRICT_CODEC.fieldOf("result").forGetter(recipe -> recipe.output),
+                    Codec.BOOL.optionalFieldOf("wine_bottle_required", false).forGetter(recipe -> recipe.wineBottleRequired)
+            ).apply(instance, FermentationBarrelRecipe::new);
+        });
+
+        public static final StreamCodec<RegistryFriendlyByteBuf, FermentationBarrelRecipe> STREAM_CODEC = StreamCodec.of(Serializer::toNetwork, Serializer::fromNetwork);
 
         @Override
-        public @NotNull FermentationBarrelRecipe fromJson(ResourceLocation id, JsonObject json) {
-            NonNullList<Ingredient> ingredients = NonNullList.create();
-            if (json.has("ingredients")) {
-                var jsonArray = GsonHelper.getAsJsonArray(json, "ingredients");
-                for (int i = 0; i < jsonArray.size() && i < 3; i++) {
-                    ingredients.add(Ingredient.fromJson(jsonArray.get(i)));
-                }
-            }
-            if (ingredients.isEmpty()) {
-                throw new JsonParseException("No ingredients for Fermentation Barrel recipe");
-            }
-
-            String juiceType = "white_general";
-            int juiceAmount = 10;
-            if (json.has("juice")) {
-                JsonObject juiceObject = GsonHelper.getAsJsonObject(json, "juice");
-                juiceType = GsonHelper.getAsString(juiceObject, "type", "white_general");
-                juiceAmount = GsonHelper.getAsInt(juiceObject, "amount", 10);
-            }
-
-            boolean wineBottleRequired = false;
-            if (json.has("wine_bottle")) {
-                JsonObject wineBottleObject = GsonHelper.getAsJsonObject(json, "wine_bottle");
-                wineBottleRequired = GsonHelper.getAsBoolean(wineBottleObject, "required", false);
-            }
-
-            ItemStack result = ShapedRecipe.itemStackFromJson(GsonHelper.getAsJsonObject(json, "result"));
-            return new FermentationBarrelRecipe(id, ingredients, juiceType, juiceAmount, result, wineBottleRequired);
+        public MapCodec<FermentationBarrelRecipe> codec() {
+            return CODEC;
         }
 
         @Override
-        public @NotNull FermentationBarrelRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buf) {
+        public StreamCodec<RegistryFriendlyByteBuf, FermentationBarrelRecipe> streamCodec() {
+            return STREAM_CODEC;
+        }
+
+        public static @NotNull FermentationBarrelRecipe fromNetwork(RegistryFriendlyByteBuf buf) {
             int ingredientCount = buf.readVarInt();
-            NonNullList<Ingredient> ingredients = NonNullList.create();
-            for (int i = 0; i < ingredientCount && i < 3; i++) {
-                ingredients.add(Ingredient.fromNetwork(buf));
-            }
+            NonNullList<Ingredient> ingredients = NonNullList.withSize(ingredientCount, Ingredient.EMPTY);
+            ingredients.replaceAll(ingredient -> (Ingredient) Ingredient.CONTENTS_STREAM_CODEC.decode(buf));
+
             String juiceType = buf.readUtf();
             int juiceAmount = buf.readVarInt();
             boolean wineBottleRequired = buf.readBoolean();
-            ItemStack result = buf.readItem();
-            return new FermentationBarrelRecipe(id, ingredients, juiceType, juiceAmount, result, wineBottleRequired);
+            ItemStack result = ItemStack.STREAM_CODEC.decode(buf);
+            return new FermentationBarrelRecipe(ingredients, new Juice(juiceType, juiceAmount), result, wineBottleRequired);
         }
 
-        @Override
-        public void toNetwork(FriendlyByteBuf buf, FermentationBarrelRecipe recipe) {
+        public static void toNetwork(RegistryFriendlyByteBuf buf, FermentationBarrelRecipe recipe) {
             buf.writeVarInt(recipe.inputs.size());
             for (Ingredient ingredient : recipe.inputs) {
-                ingredient.toNetwork(buf);
+                Ingredient.CONTENTS_STREAM_CODEC.encode(buf, ingredient);
             }
             buf.writeUtf(recipe.juiceType);
             buf.writeVarInt(recipe.juiceAmount);
             buf.writeBoolean(recipe.wineBottleRequired);
-            buf.writeItem(recipe.output);
+            ItemStack.STREAM_CODEC.encode(buf, recipe.output);
         }
+
+    }
+
+    public record Juice(String type, int amount) {
+
+        public static final Codec<Juice> CODEC = RecordCodecBuilder.create((instance) -> {
+            return instance.group(Codec.STRING.fieldOf("type").forGetter(Juice::type),
+                            Codec.INT.optionalFieldOf("amount", 10).forGetter(Juice::amount))
+                    .apply(instance, Juice::new);
+        });
     }
 }

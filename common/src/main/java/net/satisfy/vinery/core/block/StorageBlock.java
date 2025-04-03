@@ -11,6 +11,7 @@ import net.minecraft.util.Tuple;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -38,10 +39,10 @@ public abstract class StorageBlock extends FacingBlock implements EntityBlock {
     }
 
     @Override
-    public @NotNull InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {
-        BlockEntity blockEntity = world.getBlockEntity(pos);
+    protected InteractionResult useWithoutItem(BlockState blockState, Level level, BlockPos blockPos, Player player, BlockHitResult blockHitResult) {
+        BlockEntity blockEntity = level.getBlockEntity(blockPos);
         if (blockEntity instanceof StorageBlockEntity shelfBlockEntity) {
-            Optional<Tuple<Float, Float>> optional = GeneralUtil.getRelativeHitCoordinatesForBlockFace(hit, state.getValue(FACING), unAllowedDirections());
+            Optional<Tuple<Float, Float>> optional = GeneralUtil.getRelativeHitCoordinatesForBlockFace(blockHitResult, blockState.getValue(FACING), unAllowedDirections());
             if (optional.isEmpty()) {
                 return InteractionResult.PASS;
             } else {
@@ -51,20 +52,42 @@ public abstract class StorageBlock extends FacingBlock implements EntityBlock {
                     return InteractionResult.PASS;
                 }
                 if (!shelfBlockEntity.getInventory().get(i).isEmpty()) {
-                    remove(world, pos, player, shelfBlockEntity, i);
-                    return InteractionResult.sidedSuccess(world.isClientSide);
+                    remove(level, blockPos, player, shelfBlockEntity, i);
+                    return InteractionResult.sidedSuccess(level.isClientSide);
+                }
+            }
+        }
+        return InteractionResult.PASS;
+    }
+
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack itemStack, BlockState blockState, Level level, BlockPos blockPos, Player player, InteractionHand interactionHand, BlockHitResult blockHitResult) {
+        BlockEntity blockEntity = level.getBlockEntity(blockPos);
+        if (blockEntity instanceof StorageBlockEntity shelfBlockEntity) {
+            Optional<Tuple<Float, Float>> optional = GeneralUtil.getRelativeHitCoordinatesForBlockFace(blockHitResult, blockState.getValue(FACING), unAllowedDirections());
+            if (optional.isEmpty()) {
+                return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+            } else {
+                Tuple<Float, Float> ff = optional.get();
+                int i = getSection(ff.getA(), ff.getB());
+                if (i == Integer.MIN_VALUE) {
+                    return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
+                }
+                if (!shelfBlockEntity.getInventory().get(i).isEmpty()) {
+                    remove(level, blockPos, player, shelfBlockEntity, i);
+                    return ItemInteractionResult.sidedSuccess(level.isClientSide);
                 } else {
-                    ItemStack stack = player.getItemInHand(hand);
+                    ItemStack stack = player.getItemInHand(interactionHand);
                     if (!stack.isEmpty() && canInsertStack(stack)) {
-                        add(world, pos, player, shelfBlockEntity, stack, i);
-                        return InteractionResult.sidedSuccess(world.isClientSide);
+                        add(level, blockPos, player, shelfBlockEntity, stack, i);
+                        return ItemInteractionResult.sidedSuccess(level.isClientSide);
                     } else {
-                        return InteractionResult.CONSUME;
+                        return ItemInteractionResult.CONSUME;
                     }
                 }
             }
         } else {
-            return InteractionResult.PASS;
+            return ItemInteractionResult.SKIP_DEFAULT_BLOCK_INTERACTION;
         }
     }
 

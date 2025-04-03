@@ -1,6 +1,7 @@
 package net.satisfy.vinery.core.block.entity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
@@ -15,6 +16,9 @@ import net.satisfy.vinery.core.registry.EntityTypeRegistry;
 import net.satisfy.vinery.core.util.GeneralUtil;
 import org.jetbrains.annotations.NotNull;
 
+import javax.swing.text.html.Option;
+import java.util.Optional;
+
 public class FlowerPotBlockEntity extends BlockEntity {
     private Item flower;
 
@@ -22,43 +26,38 @@ public class FlowerPotBlockEntity extends BlockEntity {
         super(EntityTypeRegistry.FLOWER_POT_ENTITY.get(), pos, state);
     }
 
-    public void saveAdditional(CompoundTag nbt) {
-        super.saveAdditional(nbt);
-        this.writeFlower(nbt, this.flower);
+    @Override
+    protected void saveAdditional(CompoundTag compoundTag, HolderLookup.Provider provider) {
+        super.saveAdditional(compoundTag, provider);
+        this.writeFlower(compoundTag, this.flower, provider);
     }
 
-    public void load(CompoundTag nbt) {
-        super.load(nbt);
-        this.flower = this.readFlower(nbt);
+    @Override
+    protected void loadAdditional(CompoundTag compoundTag, HolderLookup.Provider provider) {
+        super.loadAdditional(compoundTag, provider);
+        if (compoundTag.contains("flower")) {
+            CompoundTag nbtCompound = compoundTag.getCompound("flower");
+            if (!nbtCompound.isEmpty()) {
+                Optional<ItemStack> stack = ItemStack.parse(provider, nbtCompound);
+                this.flower = stack.map(ItemStack::getItem).orElse(null);
+            }
+        } else this.flower = null;
     }
 
-    public void writeFlower(CompoundTag nbt, Item flower) {
+    public void writeFlower(CompoundTag nbt, Item flower, HolderLookup.Provider provider) {
         CompoundTag nbtCompound = new CompoundTag();
         if (flower != null) {
-            flower.getDefaultInstance().save(nbtCompound);
-        }
-
-        nbt.put("flower", nbtCompound);
-    }
-
-    public Item readFlower(CompoundTag nbt) {
-        super.load(nbt);
-        if (nbt.contains("flower")) {
-            CompoundTag nbtCompound = nbt.getCompound("flower");
-            if (!nbtCompound.isEmpty()) {
-                return ItemStack.of(nbtCompound).getItem();
-            }
-        }
-
-        return null;
+            nbt.put("flower", flower.getDefaultInstance().save(provider));
+        } else nbt.put("flower", null);
     }
 
     public ClientboundBlockEntityDataPacket getUpdatePacket() {
         return ClientboundBlockEntityDataPacket.create(this);
     }
 
-    public @NotNull CompoundTag getUpdateTag() {
-        return this.saveWithoutMetadata();
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider provider) {
+        return this.saveWithoutMetadata(provider);
     }
 
     public void setChanged() {
